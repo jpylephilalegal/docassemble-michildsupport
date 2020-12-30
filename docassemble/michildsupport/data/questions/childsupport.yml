@@ -1,0 +1,1116 @@
+metadata:
+  title: Michigan Child Support
+  short: Child Support
+---
+modules:
+  - .misc
+---
+objects:
+  - parents: ParentDict
+  - children: ChildrenList
+  - parents[i].overnights: DAList.using(object_type=DAObject, minimum_number=len(children), complete_attribute='include')
+  - parents[i].income_sources: DAList.using(object_type=DAObject, complete_attribute='gross_income', minimum_number=1)
+  - parents[i].deductions: DAList.using(object_type=DAObject, complete_attribute='amount')
+  - parents[i].childcare_expenses: DAList.using(object_type=DAObject, complete_attribute='amount')
+  - parents[i].medical_expenses: DAList.using(object_type=DAObject, complete_attribute='amount')
+  - output_file: DAFile
+  - output_png: DAFile
+  - json_file: DAFile
+---
+question: |
+  What is the child support group?
+field: child_support_group
+choices:
+  - Two Parents: AB
+  - One Parent and a Non-Parent Custodian: AC
+  - Two Parents and a Non-Parent Custodian: ABC
+---
+code: |
+  parents['A'].name.first
+  if 'B' in child_support_group:
+    parents['B'].name.first
+  if 'C' in child_support_group:
+    parents['C'].name.first
+  parents.gathered = True
+---
+question: |
+  What is the name of the
+  % if i == 'A':
+    % if child_support_group != 'AC':
+  first parent?
+    % else:
+  parent?
+    % endif
+  % elif i == 'B':
+  second parent?
+  % else:
+  non-parent custodian?
+  % endif
+fields:
+  - First name: parents[i].name.first
+    validate: noquote
+  - Last name: parents[i].name.last
+    validate: noquote
+---
+question: |
+  How many children in the child support group?
+fields:
+  - Number of children: children.target_number
+    datatype: integer
+    choices:
+      - "1": 1
+      - "2": 2
+      - "3": 3
+      - "4": 4
+      - "5": 5
+---
+question: |
+  % if children.target_number == 1:
+  What is the name and birthdate of the child?
+  % else:
+  What is the name and birthdate of the ${ ordinal(i) } child?
+  % endif
+fields:
+  - First name: children[i].name.first
+    validate: noquote
+  - Last name: children[i].name.last
+    validate: noquote
+  - Birth date: children[i].birthdate
+    datatype: date
+---
+question: |
+  Does ${ children[i] } live with ${ parents['C'] }?
+yesno: children[i].lives_with_non_parent_custodian
+---
+event: no_child_with_guardian
+question: |
+  One of the children must live with ${ parents['C'] }.
+subquestion: |
+  You said that there was a non-parent custodian (${ parents['C'] }),
+  but you said none of the children lives with the non-parent
+  custodian.  If no child lives with ${ parents['C'] }, then ${
+  parents['C'] } should not be part of the child support calculation.
+
+  Please go back and change your answers.
+---
+question: |
+  What tax year do you want to use?
+subquestion: |
+  In most situations the tax year is the current year.
+
+  The selected tax year determines the tax percentages to use when
+  estimating taxes on the income entered for a parent and should be
+  the same year as that of the income earned/received.
+
+  For more information on estimating taxes, see the [Michigan Child
+  Support Formula, 2021 MCSF
+  2.07(B)(2)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=17).
+fields:
+  - Tax year: tax_year
+    datatype: integer
+    code: range(max_tax_year - 4, max_tax_year + 1)
+    default: ${ max_tax_year }
+---
+code: |
+  if today() > as_datetime(str(today().year) + '-04-15'):
+    max_tax_year = today().year + 1
+  else:
+    max_tax_year = today().year
+---
+question: |
+  Do you have a court case?
+yesno: has_a_court_case
+---
+question: |
+  Tell us about your court case.
+subquestion: |
+  The court case number and county may be recorded if known. If you
+  know the court case type (for example, DP, DS, DM, etc.), that can
+  also be entered with the Court Case Number field.
+
+  Note: The court may require that the court case number and county be identified.
+fields:
+  - Case number: court_case_number
+    validate: noquote
+    required: False
+  - County: court_case_county
+    choices:
+      - Alcona
+      - Alger
+      - Allegan
+      - Alpena
+      - Antrim
+      - Arenac
+      - Baraga
+      - Barry
+      - Bay
+      - Benzie
+      - Berrien
+      - Branch
+      - Calhoun
+      - Cass
+      - Charlevoix
+      - Cheboygan
+      - Chippewa
+      - Clare
+      - Clinton
+      - Crawford
+      - Delta
+      - Dickinson
+      - Eaton
+      - Emmet
+      - Genesee
+      - Gladwin
+      - Gogebic
+      - Grand Traverse
+      - Gratiot
+      - Hillsdale
+      - Houghton
+      - Huron
+      - Ingham
+      - Ionia
+      - Iosco
+      - Iron
+      - Isabella
+      - Jackson
+      - Kalamazoo
+      - Kalkaska
+      - Kent
+      - Keweenaw
+      - Lake
+      - Lapeer
+      - Leelanau
+      - Lenawee
+      - Livingston
+      - Luce
+      - Mackinac
+      - Macomb
+      - Manistee
+      - Marquette
+      - Mason
+      - Mecosta
+      - Menominee
+      - Midland
+      - Missaukee
+      - Monroe
+      - Montcalm
+      - Montmorency
+      - Muskegon
+      - Newaygo
+      - Oakland
+      - Oceana
+      - Ogemaw
+      - Ontonagon
+      - Osceola
+      - Oscoda
+      - Otsego
+      - Ottawa
+      - Presque Isle
+      - Roscommon
+      - Saginaw
+      - Saint Clair
+      - Saint Joseph
+      - Sanilac
+      - Schoolcraft
+      - Shiawassee
+      - Tuscola
+      - Van Buren
+      - Washtenaw
+      - Wayne
+      - Wexford
+    required: False
+---
+code: |
+  calculation_description = "Michigan Legal Help child support calculation"
+---
+question: |
+  Enter the number of overnights per year ${ parents[i] } spends with
+  % if children.number() > 1:
+  each minor child.
+  % else:
+  ${ children[0] }.
+  % endif
+subquestion: |
+  % if i == 'A':
+  Enter a number from 0 to 365.
+  % endif
+
+  % if 'B' in child_support_group and i == 'A':
+  If both parents equally share physical custody, 182.5 overnights may
+  be appropriate.
+  % endif
+
+  For more information on overnights, see the [Michigan Child Support
+  Formula, 2021 MCSF
+  3.03](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=22).
+list collect:
+  enable: True
+  label: |
+    ##### Overnights with ${ children[j] }
+  allow append: False
+  allow delete: False
+fields:
+  - field: parents[i].overnights[j].days
+    label: Overnights per year
+    datatype: float
+    default: |
+      % if i == 'B':
+      ${ 365-parents['A'].overnights[j].days }
+      % else:
+      0
+      % endif
+    min: 0.0
+    max: |
+      % if i == 'B':
+      ${ 365.0-parents['A'].overnights[j].days }
+      % else:
+      365.0
+      % endif
+    help: |
+      Type in the number of overnights per year that
+      ${ children[j] } spends with ${ parents[i] }.
+
+      % if i == 'B':
+      The number must be ${ 365-parents['A'].overnights[j].days } or less because earlier you said that ${ children[j] } spent ${ parents['A'].overnights[j].days } nights with ${ parents['A'] }.
+      % endif
+
+      If you are not 100% sure what the number is, put
+      in your best estimate.
+    show if:
+      code: |
+        not ('C' in child_support_group and children[j].lives_with_non_parent_custodian)
+  - note: |
+      Since ${ children[j] } is in the custody of ${ parents['C'] }, overnights
+      that ${ parents[i] } may spend with this child are not relevant to the
+      child support calculation.  However, you can choose whether support should
+      be calculated for ${ children[j] }.
+    show if:
+      code: |
+        'C' in child_support_group and children[j].lives_with_non_parent_custodian
+  - field: parents[i].overnights[j].include
+    label: Include in child support calculation
+    datatype: yesno
+    default: |
+      % if 'C' in child_support_group and children[j].lives_with_non_parent_custodian:
+      False
+      % else:
+      True
+      % endif
+    help: |
+      In most situations this box will remain checked.
+
+      If a child will not require support to be calculated for them as
+      part of this support calculation, then uncheck the box.
+
+      For example, if ${ children[j] } already has a child support
+      order, then this checkbox should not be checked.
+
+      For more information on child support children on a calculation,
+      see the [Michigan Child Support Formula, 2021 MCSF
+      3.02(A)(1)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=20).
+# ---
+# code: |
+#   if 'C' in child_support_group and children[j].lives_with_non_parent_custodian:
+#     parents[i].overnights[j].days = 0
+---
+code: |
+  parents['A'].other_parent = parents['B']
+---
+code: |
+  parents['B'].other_parent = parents['A']
+---
+question: |
+  Did ${ parents['A'] } and ${ parents['B'] } have any children
+  together who are still minors and who are currently in the custody
+  of someone other than ${ parents['A'] } or ${ parents['B'] }?
+fields:
+  - no label: common_non_custodial_children_exist
+    datatype: yesnoradio
+  - How many children?: number_of_non_custodial_children
+    datatype: integer
+    min: 0
+    show if: common_non_custodial_children_exist
+---
+code: |
+  if child_support_group == 'AC' or not common_non_custodial_children_exist:
+    number_of_non_custodial_children = 0
+---
+question: |
+  How many additional minor children does ${ parents[i] } have from other
+  relationships?
+subquestion: |
+  This represents the number of children ${ parents[i] } has
+  from relationships with someone other than ${ parents[i].other_parent }.
+  Estimate to the best of your ability.
+
+  Additional minor children from other relationships include
+  biological or adopted children from a relationship with someone that
+  is not ${ parents[i].other_parent } (for example, a new
+  spouse). Step children are not to be included.
+
+  For more information on additional minor children from other
+  relationships, see the [Michigan Child Support Formula, 2021 MCSF
+  2.08(A)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=17), and [2021 MCSF 4.01(C)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=30).
+fields:
+  - Number of additional minor children: parents[i].additional_minor_children
+    datatype: integer
+    default: 0
+---
+if: child_support_group == 'AC'
+question: |
+  How many additional minor children does ${ parents[i] } have?
+subquestion: |
+  For more information, see the [Michigan Child Support Formula, 2021 MCSF
+  2.08(A)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=17), and [2021 MCSF 4.01(C)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=30).
+fields:
+  - Number of additional minor children: parents[i].additional_minor_children
+    datatype: integer
+    default: 0
+---
+question: |
+  Tell me about the income of ${ parents[i] }.
+list collect:
+  enable: True
+  label: |
+    #### ${ ordinal(j, capitalize=True) } income source
+fields:
+  - Source: parents[i].income_sources[j].type
+    choices:
+      - "Adoption Subsidy": Adoption Subsidy
+      - "Allowance for Rent": Allowance for Rent
+      - "Annuity/Structured Settlement": Annuity/Structured Settlement
+      - "Bonuses / Commissions / Profit Sharing": Bonuses / Commissions / Profit Sharing
+      - "Capital Gains": Capital Gains
+      - "Deferred Compensation": Deferred Compensation
+      - "Disability Insurance/Insurance Compensation": Disability Insurance/Insurance Compensation
+      - "Dividends": Dividends
+      - "Dividends Earned from Life Insurance": Dividends Earned from Life Insurance
+      - "Employer Wages": Employer Wages
+      - "GI Benefits ": GI Benefits
+      - "Gifts and Gratuities - Non-Employer": Gifts and Gratuities - Non-Employer
+      - "Home Health Care": Home Health Care
+      - "Inheritance and Gift Interest": Inheritance and Gift Interest
+      - "Interest": Interest
+      - "Long Term Disability": Long Term Disability
+      - "Military/National Guard - Non-taxable": Military/National Guard - Non-taxable
+      - "Military/National Guard/Reserve - Taxable": Military/National Guard/Reserve - Taxable
+      - "Net Gambling Winnings": Net Gambling Winnings
+      - "Non-Means Tested Refundable Tax Credits": Non-Means Tested Refundable Tax Credits
+      - "Other - All Taxes Apply": Other - All Taxes Apply
+      - "Perks and In-Kind - From Employment": Perks and In-Kind - From Employment
+      - "Retirement - Non-Taxable": Retirement - Non-Taxable
+      - "Retirement - Taxable": Retirement - Taxable
+      - "Self-Employment or 1099": Self-Employment or 1099
+      - "Sick Benefits - Short Term Disability": Sick Benefits - Short Term Disability
+      - "Social Security RSDI, Veterans' Admin, Railroad Retirement, or similar program": Social Security RSDI, Veterans' Admin, Railroad Retirement, or similar program
+      - "Social Security RSDI, Veterans' Admin, Railroad Retirement, or similar program Dependent Benefits": Social Security RSDI, Veterans' Admin, Railroad Retirement, or similar program Dependent Benefits
+      - "Spousal Support Received from Another Party": Spousal Support Received from Another Party
+      - "Strike Pay": Strike Pay
+      - "Supplemental Unemployment Benefits": Supplemental Unemployment Benefits
+      - "Tax Exempt Income": Tax Exempt Income
+      - "Tips": Tips
+      - "Travel or other Expense Reimbursements  from Employer": Travel or other Expense Reimbursements  from Employer
+      - "Tribal Per Capita Payments": Tribal Per Capita Payments
+      - "Trust Fund Payments": Trust Fund Payments
+      - "Unemployment Compensation Benefits": Unemployment Compensation Benefits
+      - "VA Benefits/Military Disability": VA Benefits/Military Disability
+      - "Worker's Compensation Benefits": Worker's Compensation Benefits
+  - This is potential income: parents[i].income_sources[j].is_potential
+    datatype: yesno
+  - "Benefit Based on Someone Other than a Parent's Earnings Records": parents[i].income_sources[j].based_on_non_parent
+    datatype: yesno
+    help: |
+      Use this checkbox to indicate that this dependent benefit amount
+      is based on the earnings record of someone other than
+      % if 'AB' in child_support_group:
+      ${ parents['A'] } and ${ parents['B'] }.
+      % else:
+      ${ parents['A'] }.
+      % endif
+
+      For example, if this dependent benefit amount is based on a new
+      spouse's earnings record.
+
+      For more information on dependent benefits, see [2021 MCSF
+      2.01(I)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=15), [2021 MCSF 2.01(J)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=15), and [2021 MCSF 2.01(K)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=15).
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: "Social Security RSDI, Veterans' Admin, Railroad Retirement, or similar program Dependent Benefits"
+  - Employer name: parents[i].income_sources[j].employer_name
+    validate: noquote
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: Employer Wages
+  - Business name: parents[i].income_sources[j].business_name
+    validate: noquote
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: Self-Employment or 1099
+  - "Employer Responsible for the Claim": parents[i].income_sources[j].employer_name
+    validate: noquote
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: Worker's Compensation Benefits
+    help: |
+      Enter the name of the employer that is responsible for filing the claim.
+  - "Workers Compensation Agency": parents[i].income_sources[j].agency
+    validate: noquote
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: Worker's Compensation Benefits
+    help: |
+      Enter the name of the worker's compensation insurance company
+      that is providing payment to ${ parents[i] }.
+  - "How often is the income received?": parents[i].income_sources[j].frequency
+    choices:
+      - Annually
+      - Bi-Weekly
+      - Daily
+      - Hourly
+			- Monthly
+      - Quarterly
+      - Semi-Monthly
+      - Weekly
+    default: Monthly
+  - Income in this period: parents[i].income_sources[j].gross_income
+    datatype: currency
+    js show if: |
+      val('parents[i].income_sources[j].type') && val('parents[i].income_sources[j].type') != 'Employer Wages'
+  - Gross income in this period: parents[i].income_sources[j].gross_income
+    datatype: currency
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: Employer Wages
+    help: |
+      Gross income is how much you receive before taxes and other deductions.
+      This does not include overtime.
+  - Overtime in this period: parents[i].income_sources[j].overtime
+    datatype: currency
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: Employer Wages
+    help: |
+      Enter only the amount of income earned for overtime pay in this
+      field. For example, if ${ parents[i] } earns $10 per hour at 40
+      hours per week as regular wages, and "time-and-a-half" ($15) per
+      hour for ten hours per week as overtime wages, then enter $15 in
+      this field.
+  - Shift premium in this period: parents[i].income_sources[j].shift_premium
+    datatype: currency
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: Employer Wages
+    help: |
+      Enter only the amount of income earned for shift premium pay in
+      this field. For example, if ${ parents[i] } earns $10 per hour
+      at 40 hours per week as regular wages, and an additional $2 per
+      hour as a shift premium for working the third-shift for 40 hours
+      per week, then enter $2 in this field.
+  - "Is ${ parents[i] } required to contribute a percentage of income to a retirement account?": parents[i].income_sources[j].must_contribute_to_retirement
+    datatype: yesnoradio
+    show if:
+      variable: parents[i].income_sources[j].type
+      is: Employer Wages
+  - "What percentage of income is ${ parents[i] } required to contribute?": parents[i].income_sources[j].mandatory_percentage
+    datatype: float
+    min: 0
+    max: 100
+    show if: parents[i].income_sources[j].must_contribute_to_retirement
+    help: |
+      Enter the percentage of retirement contributions from this
+      source of income for ${ parents[i] } for Employee Mandatory
+      Contributions: Percentage of income contributed by ${ parents[i]
+      } to their pension or individual retirement account that is
+      mandatory as a condition of employment.
+
+      For more information on retirement contributions, see the
+      [Michigan Child Support Formula, 2021 MCSF
+      2.07(C)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=17).
+---
+question: |
+  Tell me about the tax exemptions of ${ parents[i] }.
+fields:
+  - Tax exemptions: parents[i].tax_exemptions
+    datatype: integer
+    min: 1
+    help: |
+      Verify that your state allows personal tax exemptions. If so,
+      please count one for yourself, plus one for each additional
+      allowable dependent claimed on state taxes.
+  - Filing status: parents[i].filing_status
+    choices:
+      - Head of Household
+      - Married Filing Jointly
+      - Married Filing Separately
+      - Single
+      - Qualifying Widow(er)
+    help: |
+      Select the appropriate filing status for ${ parents[i] }. See the
+      IRS website for help determining the appropriate filing status.
+
+      [IRS - What is My Filing Status?](https://www.irs.gov/uac/What-Is-My-Filing-Status)
+  - City of residence: parents[i].city_of_residence
+    choices:
+      - Does not live in a city with a resident tax
+      - Albion
+      - Battle Creek
+      - Benton Harbor
+      - Big Rapids
+      - Detroit
+      - East Lansing
+      - Flint
+      - Grand Rapids
+      - Grayling
+      - Hamtramck
+      - Highland Park
+      - Hudson
+      - Ionia
+      - Jackson
+      - Lansing
+      - Lapeer
+      - Muskegon
+      - Muskegon Heights
+      - Pontiac
+      - Port Huron
+      - Portland
+      - Saginaw
+      - Springfield
+      - Walker
+    help: |
+      Some cities in Michigan assess a local income tax. If ${
+      parents[i] } lives in a city that assesses a local income tax,
+      select that city from the dropdown list. If the city that ${
+      parents[i] } lives in does not appear in the list, select "Does
+      not live in a city with a resident tax".
+  - City of employment: parents[i].city_of_employment
+    choices:
+      - Does not work in a city with a non-resident tax
+      - Albion
+      - Battle Creek
+      - Benton Harbor
+      - Big Rapids
+      - Detroit
+      - East Lansing
+      - Flint
+      - Grand Rapids
+      - Grayling
+      - Hamtramck
+      - Highland Park
+      - Hudson
+      - Ionia
+      - Jackson
+      - Lansing
+      - Lapeer
+      - Muskegon
+      - Muskegon Heights
+      - Pontiac
+      - Port Huron
+      - Portland
+      - Saginaw
+      - Springfield
+      - Walker
+    help: |
+      Some cities in Michigan assess a local income tax. If ${
+      parents[i] } works in a city that assesses a local income tax,
+      select that city from the dropdown list. If the city that ${
+      parents[i] } works in does not appear in the list, select "Does
+      not work in a city with a resident tax".
+---
+question: |
+  Does ${ parents[i] } have any other deductions besides taxes?
+yesno: parents[i].deductions.there_are_any
+---
+question: |
+  Tell me about the non-tax deductions of ${ parents[i] }.
+list collect:
+  enable: True
+  label: |
+    ##### ${ ordinal(j, capitalize=True) } deduction
+fields:
+  - Source: parents[i].deductions[j].type
+    choices:
+      - "Child Protective or Delinquency Costs"
+      - "Employee Mandatory Retirement Contribution"
+      - "Life Insurance - Child Beneficiary"
+      - "Mandatory Withholdings - Other"
+      - "Reimbursements from Employer - Actual costs of travel, tuition, educational costs, uniforms, or other"
+      - "Required Union Dues"
+      - "Spousal Support Paid to Another Party"
+  - Deduction amount: parents[i].deductions[j].amount
+    datatype: currency
+  - Frequency: parents[i].deductions[j].frequency
+    choices:
+      - Annually
+      - Bi-Weekly
+      - Daily
+      - Hourly
+			- Monthly
+      - Quarterly
+      - Semi-Monthly
+      - Weekly
+    default: Monthly
+---
+question: |
+  How do you want to determine the taxes of ${ parents[i] }?
+fields:
+  - no label: parents[i].tax_method
+    choices:
+      - "I know the tax amounts and will enter them": manual
+        help: |
+          Select to manually enter the actual tax amounts paid for ${
+          parents[i] }. Using tax returns will most accurately reflect
+          the taxes paid; however, paycheck stubs and other
+          information can be used as an alternative. The
+          MiChildSupport Calculator will not estimate any of the tax
+          amounts.
+      - "I don't know the tax amounts; estimate monthly taxes for me": estimated
+        help: |
+          Select to have the MiChildSupport Calculator estimate the
+          monthly tax amounts based on the information entered for
+          ${ parents[i] } and the tax year selected on the Getting
+          Started, page. Income types will vary in how tax rates are
+          applied. For example: Social Security income is not taxable
+          in the State of Michigan. The estimated taxes were updated
+          for the tax year 2018, and include changes to the federal
+          income tax brackets and the withholding percentages for each
+          filing status, the standard deductions, and the federal
+          exemption amounts. The state and city tax values remained
+          unchanged for 2018. Other federal tax values were not
+          changed at this time, and may require additional updates in
+          the future, as a result of, the Tax Cuts and Jobs Act that
+          was signed into law in December 2017.
+---
+question: |
+  Tell me about the taxes of ${ parents[i] }.
+fields:
+  - Taxation Frequency: parents[i].taxation_frequency
+    help: |
+      Select the frequency for the taxes being entered. The frequency
+      selected in the "Select Tax Frequency" dropdown will then be
+      used to determine the monthly amount of taxes for the purpose of
+      calculating child support.
+
+      For example, if ${ parents[i] } has a weekly paycheck stub,
+      select "Weekly" in the "Select Taxation Frequency"
+      dropdown. Then enter the weekly tax amounts for ${ parents[i]
+      }. The final results of the calculation will determine the
+      monthly amount.
+    choices:
+      - Annually
+      - Bi-Weekly
+      - Daily
+      - Hourly
+      - Monthly
+      - Quarterly
+      - Semi-Monthly
+      - Weekly
+    default: Monthly
+  - Federal income tax: parents[i].federal_income_tax
+    datatype: currency
+  - State income tax: parents[i].state_income_tax
+    datatype: currency
+  - FICA tax: parents[i].fica_tax
+    datatype: currency
+  - Resident local tax: parents[i].resident_local_tax
+    datatype: currency
+  - Non-resident local tax: parents[i].non_resident_local_tax
+    datatype: currency
+---
+question: |
+  Does ${ parents[i] } have any childcare expenses?
+subquestion: |
+  Child care expenses are included in the calculation of child support. Child care expenses may include:
+
+  * Actual Child Care - Actual, predictable, and reasonable child care
+    expenses
+
+  * Potential Child Care - A reasonable amount for future child care
+    expenses when a regular pattern of child care has not been
+    established
+
+  For more information on child care expenses, see the [Michigan Child
+  Support Formula, 2021 MCSF 3.06](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=27).
+yesno: parents[i].childcare_expenses.there_are_any
+---
+question: |
+  Tell me about the childcare expenses of ${ parents[i] }.
+list collect:
+  enable: True
+  label: |
+    ##### ${ ordinal(j, capitalize=True) } childcare expense
+fields:
+  - "Is this a potential or an actual expense?": parents[i].childcare_expenses[j].potential
+    input type: radio
+    choices:
+      - Potential: True
+      - Actual: False
+    help: |
+      Click "Potential" if this child care expense represents a
+      reasonable amount for future child care costs when a regular
+      pattern of child care has not been established.
+
+      % if any(y.is_potential for y in parents[i].income_sources):
+      Since ${ parents[i] } had potential income, consider if any child care
+      expenses for ${ parents[i] } would be potential.
+      % endif
+
+      For more information on potential child care expenses, see the
+      [Michigan Child Support Formula, 2021 MCSF 3.06(F)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=28).
+  - "Does this expense benefit all the children or just one?": parents[i].childcare_expenses[j].all_or_one
+    datatype: radio
+    choices:
+      - All children: all
+      - One of the children: one
+    show if:
+      code: children.number() > 1
+  - "For which child is this expense?": parents[i].childcare_expenses[j].child
+    datatype: object
+    choices: children
+    show if:
+      code: children.number() > 1
+      variable: parents[i].childcare_expenses[j].all_or_one
+      is: one
+  - Months in child care: parents[i].childcare_expenses[j].months
+    datatype: integer
+    min: 1
+    max: 12
+  - Expense amount: parents[i].childcare_expenses[j].amount
+    datatype: currency
+  - Frequency: parents[i].childcare_expenses[j].frequency
+    choices:
+      - Annually
+      - Bi-Weekly
+      - Daily
+      - Hourly
+      - Monthly
+      - Quarterly
+      - Semi-Monthly
+      - Weekly
+    default: Monthly
+---
+question: |
+  Do you know how much ${ parents[i] } is entitled to from the Child
+  and Dependent Care Tax Credit?
+yesno: parents[i].override_child_dependent_care_tax_credit
+---
+question: |
+  How much is ${ parents[i] } entitled to under the Child and
+  Dependent Care Tax Credit?
+subquestion: |
+  This dollar amount is an estimate of the federal tax credit ${
+  parents[i] } receives based on the following information recorded:
+  the number of children on the calculation, the income for ${
+  parents[i] } , and the child care expenses recorded for ${
+  parents[i] } . For more information on this federal tax credit, see
+  IRS Publication 503.
+fields:
+  - Amount: parents[i].child_dependent_care_tax_credit_amount
+    datatype: currency
+  - Frequency: parents[i].child_dependent_care_tax_credit_frequency
+    choices:
+      - Annually
+      - Bi-Weekly
+      - Daily
+      - Hourly
+      - Monthly
+      - Quarterly
+      - Semi-Monthly
+      - Weekly
+    default: Monthly
+---
+question: |
+  How much does ${ parents[i] } receive from child care subsidies and
+  reimbursements?
+subquestion: |
+  Use this field to enter a dollar amount for any subsidies or
+  reimbursements for child care costs that this parent may receive,
+  such as Child Development and Care (CDC).
+fields:
+  - Amount: parents[i].child_care_subsidies_and_reimbursements_amount
+    datatype: currency
+  - Frequency: parents[i].child_care_subsidies_and_reimbursements_frequency
+    choices:
+      - Annually
+      - Bi-Weekly
+      - Daily
+      - Hourly
+      - Monthly
+      - Quarterly
+      - Semi-Monthly
+      - Weekly
+    default: Monthly
+---
+question: |
+  Is there a reason to change the date after which the child care costs of
+  ${ children[i] } will no longer be included in child support calculations?
+subquestion: |
+  Normally, child care costs are included in the child support
+  calculations until August 31 following the child's 12th birthday.
+
+  However, in some circumstances, a child's health or safety needs
+  require child care beyond this date, and the date can be extended in
+  the future.
+
+  For more information on the child care reimbursement end date, see
+  the [Michigan Child Support Formula, 2021 MCSF
+  3.06(D)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=28).
+
+  If there is a reason for extending the date, say "Yes" here.  Most
+  people say "No."
+yesno: children[i].manual_dependency_end_date
+---
+question: |
+  What is the date after which the child care costs of
+  ${ children[i] } should no longer be included in child support calculations?
+fields:
+  - Date: children[i].dependency_end_date
+    datatype: date
+---
+question: |
+  How much does ${ parents[i] } pay for health care insurance?
+subquestion: |
+  Enter the insurance premium amount only.
+fields:
+  - Amount: parents[i].health_care_insurance_cost
+    datatype: currency
+  - Frequency: parents[i].health_care_insurance_frequency
+    choices:
+      - Annually
+      - Bi-Weekly
+      - Daily
+      - Hourly
+      - Monthly
+      - Quarterly
+      - Semi-Monthly
+      - Weekly
+    default: Monthly
+  - "Is the health care insurance provided by a spouse or other household member?": parents[i].health_insurance_provided_by_other
+    datatype: yesnoradio
+    help: |
+      A parent may record health care insurance premiums paid by a
+      spouse or other household member for the purposes of determining
+      the health care premium adjustment and health care insurance
+      deduction for covering additional children. If these premiums
+      are paid by a spouse or other household member of a parent, then
+      that parent will not receive the self-coverage deduction.
+
+      For more information on health care insurance premiums, see the
+      [Michigan Child Support Formula, 2021 MCSF
+      3.05(C)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=27).
+    show if:
+      code: i != 'C'
+  - "Which children are covered by this health insurance?": parents[i].children_covered
+    datatype: object_checkboxes
+    choices: children
+    show if:
+      code: children.number() > 1
+  - "Is ${ children[0] } covered by this health insurance?": parents[i].only_child_covered
+    datatype: yesnoradio
+    show if:
+      code: children.number() == 1
+  - "How many additional children are covered by this health insurance?": parents[i].additional_children_covered
+    datatype: integer
+    min: 0
+    help: |
+      Enter the number of qualifying additional minor children that
+      are covered by the health care insurance provided. Qualifying
+      additional children may include the minor children from another
+      relationship, but does not include step-children. This is used
+      to create a deduction for ${ parents[i] }.
+  - "How many additional people are covered by this health insurance, including ${ parents[i] }?": parents[i].additional_people_covered
+    datatype: integer
+    min: 0
+    help: |
+      Enter the number of additional people, including ${ parents[i]
+      }, covered by the health care insurance. Other people may
+      include a new spouse, step-children, or other relatives.
+
+      When at least one individual is indicated here an additional
+      deduction will be created for ${ parents[i] } for providing
+      health care insurance coverage for themselves, per the Michigan
+      Child Support formula.
+
+      For more information on additional deductions for self-coverage
+      of health care insurance, see the [Michigan Child Support
+      Formula, 2021 MCSF
+      2.07(F)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=17).
+---
+question: |
+  Does ${ parents[i] } have any additional out-of-pocket medical expenses?
+subquestion: |
+  Additional out-of-pocket medical expenses that can be predicted in
+  advance may be included in the calculation of support. Examples of
+  these types of expenses include orthodontia, special medical needs
+  such as asthma, and ongoing treatments.
+yesno: parents[i].medical_expenses.there_are_any
+---
+question: |
+  List the additional medical expenses of ${ parents[i] }.
+list collect:
+  enable: True
+  label: |
+    ##### ${ ordinal(j, capitalize=True) } medical expense
+fields:
+  - Amount: parents[i].medical_expenses[j].amount
+    datatype: currency
+  - Frequency: parents[i].medical_expenses[j].frequency
+    choices:
+      - Annually
+      - Bi-Weekly
+      - Daily
+      - Hourly
+      - Monthly
+      - Quarterly
+      - Semi-Monthly
+      - Weekly
+    default: Monthly
+  - "Does this expense benefit all the children or just one?": parents[i].medical_expenses[j].all_or_one
+    datatype: radio
+    choices:
+      - All children: all
+      - One of the children: one
+    show if:
+      code: children.number() > 1
+  - "For which child is this expense?": parents[i].medical_expenses[j].child
+    datatype: object
+    choices: children
+    show if:
+      code: children.number() > 1
+      variable: parents[i].medical_expenses[j].all_or_one
+      is: one
+---
+question: |
+  Is health care coverage accessible to the children and available at
+  a reasonable cost for ${ parents[i] }?
+subquestion: |
+  Health care insurance is considered to be available at a reasonable
+  cost when the children's portion of the premiums are 6% or less of
+  the parent's gross income. One, both, or neither parent may have
+  health care insurance coverage available at a reasonable cost.
+
+  For more information on the reasonable cost of health care insurance
+  coverage, see the [Michigan Child Support Formula, 2021 MCSF
+  3.05(A)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=25).
+yesno: parents[i].health_care_coverage_available
+---
+question: |
+  Why is health care insurance not available at a reasonable cost?
+fields:
+  - no label: parents[i].reasons_health_care_insurance_not_available
+    datatype: checkboxes
+    none of the above: False
+    minlength: 1
+    choices:
+      - "Children receive Medicaid based on ${ parents[i] }'s household income": medicaid
+      - "Cost for health insurance available to ${ parents[i] } is greater than 6% of their gross income": six_percent
+      - "Cost for health insurance is greater than 50% of ${ parents[i] }'s disposable earnings": fifty_percent
+      - "${ parents[i] }'s income is below 133% of the federal poverty level": poverty
+---
+question: |
+  Is ${ parents[i] } recommended to provide health care insurance?
+subquestion: |
+  One, both, or neither parent may be recommended to provide health
+  care insurance coverage for the children.
+
+  For more information on determining the parent who should maintain
+  health care coverage, see the [Michigan Child Support Formula, 2021
+  MCSF
+  3.05(B)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=26),
+  and the [Michigan Child Support Formula Supplement, 2021 MCSF-S
+  3.02](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSFSuppl.pdf#page=10).
+yesno: parents[i].recommended_to_provide_health_care_insurance
+---
+question: |
+  What health care coverage type is recommended for the children?
+subquestion: |
+  For more information on determining the health care coverage type
+  accessible to the children, see the [Michigan Child Support Formula,
+  2021 MCSF
+  3.05(A)](https://courts.michigan.gov/Administration/SCAO/Resources/Documents/Publications/Manuals/focb/2021MCSF.pdf#page=25).
+field:
+  parents[i].type_of_recommended_health_care_coverage
+choices:
+  - Private or Public
+  - Private Only
+  - Public Only
+---
+question: |
+  Will ${ parents[i] } pay the majority of the out-of-pocket medical expenses?
+subquestion: |
+  One parent may be more likely to pay the out-of-pocket (uninsured)
+  medical expenses than the other. If ${ parents[i] } is more likely
+  to pay the majority of the out-of-pocket medical expenses, say "Yes"
+  here.
+
+  Out-of-pocket medical expense may include but are not limited to:
+
+  * Co-Payments
+  * Deductibles
+  * Treatments not covered by insurance
+  * Services not covered by insurance
+  * Medical equipment not covered by insurance
+yesno: parents[i].will_pay_majority_of_out_of_pocket_medical_expenses
+---
+attachment:
+  name: Gherkin script
+  filename: calculate_child_support
+  raw: True
+  content file: calculate.feature
+  variable name: gherkin
+---
+mandatory: True
+code: |
+  need(gherkin, output_file, output_png, json_file)
+  if not scraping_task.ready():
+    waiting_screen
+  final_screen
+---
+code: |
+  scraping_task = background_action('scrape')
+---
+event: scrape
+code: |
+  (success, output, output_data) = run_automation(gherkin.raw.path(), output_file, output_png, json_file, parents['A'].name.full())
+  background_response_action('save_scraping_results', success=success, output=output, output_data=output_data, output_file=output_file, output_png=output_png, json_file=json_file)
+---
+event: save_scraping_results
+code: |
+  (success, output, output_data, output_file, output_png, json_file) = (action_argument('success'), action_argument('output'), action_argument('output_data'), action_argument('output_file'), action_argument('output_png'), action_argument('json_file'))
+  background_response()
+---
+code: |
+  success = False
+  output = "Failure to run background task"
+---
+event: waiting_screen
+question: |
+  <i class="fas fa-cog fa-spin"></i>
+  Processing . . .
+subquestion: |
+  Please wait while we calculate child support.
+reload: True
+---
+event: final_screen
+question: |
+  Result of child support calculation
+subquestion: |
+  % if success:
+    % if output_data['information']['highestTierSupportAmt0']:
+  ${ output_data['information']['highestTierPayer0'] }
+  would pay
+  ${ output_data['information']['highestTierSupportAmt0'] }
+  per month to 
+  ${ output_data['information']['highestTierPayee0'] }.
+    % else:
+  The result of the child support calculation is not clear.
+    % endif
+
+  [Download results](${ json_file.url_for() })
+  
+  [Download screenshot](${ output_png.url_for() })
+
+  % else:
+  Sorry, I was unable to determine the child support obligation.
+
+  ${ output }
+  % endif
