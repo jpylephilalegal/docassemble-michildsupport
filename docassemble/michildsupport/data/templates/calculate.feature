@@ -245,6 +245,5 @@ Feature: Filling out the child support calculator
     And I click the button "Continue"
 % endfor
     Then I should see the phrase "Results"
-    And I save a screenshot to "output.png"
     And I save the HTML of the page to "output.html"
     And I save the DOM of the page to "dom.html"

@@ -80,9 +80,9 @@ def run_automation(feature_file, html_file, png_file, json_file, base_name):
                     png_file.initialize(filename=base_name + '.png')
                     png_file.copy_into(output_png)
                     png_file.commit()
-                else:
-                    success = False
-                    output += "\nPNG file not found after process completed.\n"
+                # else:
+                #     success = False
+                #     output += "\nPNG file not found after process completed.\n"
     except Exception as err:
         success = False
         output = err.__class__.__name__ + ": " + str(err)

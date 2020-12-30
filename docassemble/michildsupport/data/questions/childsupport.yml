@@ -1106,8 +1106,6 @@ subquestion: |
     % endif
 
   [Download results](${ json_file.url_for() })
-  
-  [Download screenshot](${ output_png.url_for() })
 
   % else:
   Sorry, I was unable to determine the child support obligation.

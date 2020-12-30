@@ -39,6 +39,7 @@ def setup_browser():
         options = ChromeOptions()
         options.add_argument("--window-size=1350,7000")
         options.add_argument("--headless");
+        options.add_argument("--no-sandbox");
         world.browser = MyChrome(ChromeDriverManager().install(), chrome_options=options)
     else:
         options = ChromeOptions()
